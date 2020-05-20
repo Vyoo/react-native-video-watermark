@@ -68,7 +68,7 @@ public class VideoWatermarkModule extends ReactContextBaseJavaModule {
                       @Override
                       public void onFailed(Exception exception) {
                           Log.e("Progress", "Failure" + "");
-                          failureCallback.invoke(exception);
+                          failureCallback.invoke("failed");
                           //exception.printStackTrace();
                       }
                   }).start();
