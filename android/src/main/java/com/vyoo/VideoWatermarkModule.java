@@ -63,7 +63,7 @@ public class VideoWatermarkModule extends ReactContextBaseJavaModule {
                       @Override
                       public void onCanceled() {
                           //Log.e("Progress", "Cancelled" + "");
-                          failureCallback.invoke(exception);
+                          failureCallback.invoke('cancelled');
                       }
 
                       @Override
