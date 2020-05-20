@@ -48,8 +48,7 @@ public class VideoWatermarkModule extends ReactContextBaseJavaModule {
       final String destinationPath = destFile.getPath();      
       try {
           new Mp4Composer(Uri.fromFile(new File(videoPath)), destinationPath, reactContext)
-                  .filter(new GlWatermarkFilter(BitmapFactory.decodeStream(reactContext.getContentResolver().openInputStream(Uri.fromFile(new File(imagePath))))))
-                  .fillMode(FillMode.PRESERVE_ASPECT_FIT)
+                  .filter(new GlWatermarkFilter(BitmapFactory.decodeStream(reactContext.getContentResolver().openInputStream(Uri.fromFile(new File(imagePath))))))                  
                   .listener(new Mp4Composer.Listener() {
                       @Override
                       public void onProgress(double progress) {
