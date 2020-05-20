@@ -7,6 +7,7 @@ import com.facebook.react.bridge.Callback;
 
 import com.daasuu.mp4compose.composer.Mp4Composer;
 import com.daasuu.mp4compose.filter.GlWatermarkFilter;
+import com.daasuu.mp4compose.FillMode;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -31,12 +32,12 @@ public class VideoWatermarkModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
-  public void convert(String videoPath, String imagePath, Callback callback) {
-      watermarkVideoWithImage(videoPath, imagePath, callback);
+  public void convert(String videoPath, String imagePath, int width, int height, Callback successCallback, Callback failureCallback) {
+      watermarkVideoWithImage(videoPath, imagePath, width, height, successCallback, failureCallback);
   }
 
-  public void watermarkVideoWithImage(String videoPath, String imagePath, final Callback callback) {
-    File destFile = new File(this.getReactApplicationContext().getFilesDir(), "converted.mp4");
+  public void watermarkVideoWithImage(String videoPath, String imagePath, int width, int height, final Callback successCallback, final Callback failureCallback) {
+    File destFile = new File(this.getReactApplicationContext().getFilesDir(), "converted.mp4");    
       if (!destFile.exists()) {
           try {
               destFile.createNewFile();
@@ -44,11 +45,11 @@ public class VideoWatermarkModule extends ReactContextBaseJavaModule {
               e.printStackTrace();
           }
       }
-      final String destinationPath = destFile.getPath();
-
+      final String destinationPath = destFile.getPath();      
       try {
           new Mp4Composer(Uri.fromFile(new File(videoPath)), destinationPath, reactContext)
                   .filter(new GlWatermarkFilter(BitmapFactory.decodeStream(reactContext.getContentResolver().openInputStream(Uri.fromFile(new File(imagePath))))))
+                  .fillMode(FillMode.PRESERVE_ASPECT_FIT)
                   .listener(new Mp4Composer.Listener() {
                       @Override
                       public void onProgress(double progress) {
@@ -56,17 +57,20 @@ public class VideoWatermarkModule extends ReactContextBaseJavaModule {
                       }
                       @Override
                       public void onCompleted() {
-                          callback.invoke(destinationPath);
+                          successCallback.invoke(destinationPath);
                       }
 
                       @Override
                       public void onCanceled() {
-                        
+                          //Log.e("Progress", "Cancelled" + "");
+                          failureCallback.invoke(exception);
                       }
 
                       @Override
                       public void onFailed(Exception exception) {
-                          exception.printStackTrace();
+                          Log.e("Progress", "Failure" + "");
+                          failureCallback.invoke(exception);
+                          //exception.printStackTrace();
                       }
                   }).start();
       } catch (FileNotFoundException e) {

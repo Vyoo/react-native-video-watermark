@@ -5,12 +5,12 @@
 
 RCT_EXPORT_MODULE()
 
-RCT_EXPORT_METHOD(convert:(NSString *)videoUri imageUri:(nonnull NSString *)imageUri callback:(RCTResponseSenderBlock)callback)
+RCT_EXPORT_METHOD(convert:(NSString *)videoUri imageUri:(nonnull NSString *)imageUri width:(int )width height:(int )height callback:(RCTResponseSenderBlock)callback failureCallback:(RCTResponseSenderBlock)failureCallback)
 {
-    [self watermarkVideoWithImage:videoUri imageUri:imageUri callback:callback];
+    [self watermarkVideoWithImage:videoUri imageUri:imageUri callback:callback failureCallback:failureCallback];
 }
 
--(void)watermarkVideoWithImage:(NSString *)videoUri imageUri:(NSString *)imageUri callback:(RCTResponseSenderBlock)callback
+-(void)watermarkVideoWithImage:(NSString *)videoUri imageUri:(NSString *)imageUri callback:(RCTResponseSenderBlock)callback failureCallback:(RCTResponseSenderBlock)failureCallback
 {
     AVAsset* videoAsset = [[AVURLAsset alloc]initWithURL:[NSURL fileURLWithPath:videoUri] options:nil];    
     BOOL isTrackAvailable = [[videoAsset tracksWithMediaType:AVMediaTypeVideo] count] > 0;
