@@ -15,38 +15,49 @@ RCT_EXPORT_METHOD(convert:(NSString *)videoUri imageUri:(nonnull NSString *)imag
     AVAsset* videoAsset = [[AVURLAsset alloc]initWithURL:[NSURL fileURLWithPath:videoUri] options:nil];    
     BOOL isTrackAvailable = [[videoAsset tracksWithMediaType:AVMediaTypeVideo] count] > 0;
     if (isTrackAvailable) {
-        [self processedVideo:videoAsset imageUri:imageUri callback:callback];
+        [self processedVideo:videoAsset imageUri:imageUri callback:callback failureCallback:failureCallback];
     } else {
         PHFetchResult *phAssetFetchResult = [PHAsset fetchAssetsWithALAssetURLs:@[[NSURL URLWithString:videoUri]] options:nil];
         PHAsset *phAsset = [phAssetFetchResult firstObject];
         dispatch_group_t group = dispatch_group_create();
         dispatch_group_enter(group);
         [[PHImageManager defaultManager] requestAVAssetForVideo:phAsset options:nil resultHandler:^(AVAsset * _Nullable asset, AVAudioMix * _Nullable audioMix, NSDictionary * _Nullable info) {
-            [self processedVideo:asset imageUri:imageUri callback:callback];
+            [self processedVideo:asset imageUri:imageUri callback:callback failureCallback:failureCallback];
         }];
     }
 }
 
-- (void) processedVideo:(AVAsset *)videoAsset  imageUri:(NSString *)imageUri callback:(RCTResponseSenderBlock)callback{
+- (void) processedVideo:(AVAsset *)videoAsset  imageUri:(NSString *)imageUri callback:(RCTResponseSenderBlock)callback failureCallback:(RCTResponseSenderBlock)failureCallback{
+    if([[videoAsset tracksWithMediaType:AVMediaTypeVideo] count] == 0 && [[videoAsset tracksWithMediaType:AVMediaTypeAudio] count] == 0) {
+        failureCallback(@[@"trackissue"]);
+        return;
+    } else if([[videoAsset tracksWithMediaType:AVMediaTypeVideo] count] == 0) {
+        failureCallback(@[@"videoissue"]);
+        return;
+    }
     AVMutableComposition* mixComposition = [AVMutableComposition composition];
     AVMutableCompositionTrack *compositionVideoTrack = [mixComposition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
     AVAssetTrack *clipVideoTrack = [[videoAsset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0];
-    AVMutableCompositionTrack *compositionAudioTrack = [mixComposition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
-    AVAssetTrack *clipAudioTrack = [[videoAsset tracksWithMediaType:AVMediaTypeAudio] objectAtIndex:0];
     [compositionVideoTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, videoAsset.duration) ofTrack:clipVideoTrack atTime:kCMTimeZero error:nil];
-    [compositionAudioTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, videoAsset.duration) ofTrack:clipAudioTrack atTime:kCMTimeZero error:nil];
+    if([[videoAsset tracksWithMediaType:AVMediaTypeAudio] count] > 0){
+        AVMutableCompositionTrack *compositionAudioTrack = [mixComposition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+        AVAssetTrack *clipAudioTrack = [[videoAsset tracksWithMediaType:AVMediaTypeAudio] objectAtIndex:0];
+        [compositionAudioTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, videoAsset.duration) ofTrack:clipAudioTrack atTime:kCMTimeZero error:nil];
+    }
     [compositionVideoTrack setPreferredTransform:[[[videoAsset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0] preferredTransform]];
     UIImage *myImage=[UIImage imageWithContentsOfFile:imageUri];
-    CGSize sizeOfVideo = myImage.size;// CGSizeApplyAffineTransform(myImage.size, clipVideoTrack.preferredTransform);
-    //sizeOfVideo.width = fabs(sizeOfVideo.width);
-    CGSize currentVideSize = clipVideoTrack.naturalSize;
-    if (currentVideSize.width < myImage.size.width) {
-        sizeOfVideo = currentVideSize;
+    CGSize sizeOfVideo = myImage.size;//CGSizeApplyAffineTransform(myImage.size, clipVideoTrack.preferredTransform);
+    CGSize dimensions = CGSizeApplyAffineTransform(clipVideoTrack.naturalSize, clipVideoTrack.preferredTransform);
+
+    
+    if (fabs(dimensions.width) < sizeOfVideo.width) {
+        sizeOfVideo = dimensions;
     }
+    sizeOfVideo.width = fabs(sizeOfVideo.width);
     //Image of watermark
     
     
-    UIGraphicsBeginImageContext(myImage.size);
+    UIGraphicsBeginImageContext(sizeOfVideo);
     [myImage drawInRect:CGRectMake(0, 0, sizeOfVideo.width, sizeOfVideo.height)];
     UIImage *destImage = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
@@ -54,7 +65,7 @@ RCT_EXPORT_METHOD(convert:(NSString *)videoUri imageUri:(nonnull NSString *)imag
     
     
     CALayer *layerCa = [CALayer layer];
-    layerCa.contents = (id)myImage.CGImage;
+    layerCa.contents = (id)destImage.CGImage;
     layerCa.frame = CGRectMake(0, 0, sizeOfVideo.width, sizeOfVideo.height);
     layerCa.opacity = 1.0;
     
@@ -65,7 +76,8 @@ RCT_EXPORT_METHOD(convert:(NSString *)videoUri imageUri:(nonnull NSString *)imag
     [parentLayer addSublayer:videoLayer];
     [parentLayer addSublayer:layerCa];
     
-    AVMutableVideoComposition *videoComposition=[AVMutableVideoComposition videoComposition] ;
+    AVMutableVideoComposition *videoComposition=[AVMutableVideoComposition videoComposition];
+    
     videoComposition.frameDuration=CMTimeMake(1, 30);
     videoComposition.renderSize=sizeOfVideo;
     videoComposition.animationTool=[AVVideoCompositionCoreAnimationTool videoCompositionCoreAnimationToolWithPostProcessingAsVideoLayer:videoLayer inLayer:parentLayer];
@@ -115,8 +127,10 @@ RCT_EXPORT_METHOD(convert:(NSString *)videoUri imageUri:(nonnull NSString *)imag
                 break;
             case AVAssetExportSessionStatusFailed:
                 NSLog (@"AVAssetExportSessionStatusFailed: %@", exportSession.error);
+                failureCallback(@[@"trackissue"]);
                 break;
             case AVAssetExportSessionStatusCancelled:
+                failureCallback(@[@"Cancelled"]);
                 NSLog(@"Export Cancelled");
                 break;
         }
