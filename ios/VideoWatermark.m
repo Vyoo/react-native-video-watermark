@@ -38,8 +38,11 @@ RCT_EXPORT_METHOD(convert:(NSString *)videoUri imageUri:(nonnull NSString *)imag
     [compositionVideoTrack setPreferredTransform:[[[videoAsset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0] preferredTransform]];
     UIImage *myImage=[UIImage imageWithContentsOfFile:imageUri];
     CGSize sizeOfVideo = myImage.size;// CGSizeApplyAffineTransform(myImage.size, clipVideoTrack.preferredTransform);
-    sizeOfVideo.width = fabs(sizeOfVideo.width);
-    
+    //sizeOfVideo.width = fabs(sizeOfVideo.width);
+    CGSize currentVideSize = clipVideoTrack.naturalSize;
+    if (currentVideSize.width < myImage.size.width) {
+        sizeOfVideo = currentVideSize;
+    }
     //Image of watermark
     
     
