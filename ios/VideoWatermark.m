@@ -46,19 +46,34 @@ RCT_EXPORT_METHOD(convert:(NSString *)videoUri imageUri:(nonnull NSString *)imag
     }
     [compositionVideoTrack setPreferredTransform:[[[videoAsset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0] preferredTransform]];
     UIImage *myImage=[UIImage imageWithContentsOfFile:imageUri];
-    CGSize sizeOfVideo = myImage.size;//CGSizeApplyAffineTransform(myImage.size, clipVideoTrack.preferredTransform);
-    CGSize dimensions = CGSizeApplyAffineTransform(clipVideoTrack.naturalSize, clipVideoTrack.preferredTransform);
-
+    CGSize sizeOfImage = myImage.size;//CGSizeApplyAffineTransform(myImage.size, clipVideoTrack.preferredTransform);
+    CGSize sizeOfVideo = CGSizeApplyAffineTransform(clipVideoTrack.naturalSize, clipVideoTrack.preferredTransform);
+    CGSize resultVideoSize;
     
-    if (fabs(dimensions.width) < sizeOfVideo.width) {
-        sizeOfVideo = dimensions;
+    if (fabs(sizeOfVideo.width) < sizeOfImage.width) {
+        resultVideoSize = sizeOfVideo;
+    } else {
+        sizeOfImage.width = fabs(sizeOfImage.width);
+        resultVideoSize = sizeOfImage;
     }
+    resultVideoSize.width = fabs(resultVideoSize.width);
+    resultVideoSize.height = fabs(resultVideoSize.height);
     sizeOfVideo.width = fabs(sizeOfVideo.width);
+    sizeOfVideo.height = fabs(sizeOfVideo.height);
+    
     //Image of watermark
+    float imageWithRatio = resultVideoSize.width / sizeOfImage.height;
+    float imageHeightRatio = resultVideoSize.width / sizeOfImage.height;
+    float videoRatio = resultVideoSize.width > resultVideoSize.height ? resultVideoSize.width : resultVideoSize.height;
     
+    float videoWithRatio = resultVideoSize.width / sizeOfVideo.width;
+    float videoHeightRatio = sizeOfVideo.width > sizeOfVideo.height ? 1 : videoWithRatio; //resultVideoSize.height / sizeOfVideo.height;
     
-    UIGraphicsBeginImageContext(sizeOfVideo);
-    [myImage drawInRect:CGRectMake(0, 0, sizeOfVideo.width, sizeOfVideo.height)];
+    CGSize newImageSize = CGSizeMake(sizeOfImage.width * imageWithRatio, sizeOfImage.height * imageHeightRatio);
+    
+    CGSize newVideoSize = CGSizeMake(sizeOfVideo.width * videoWithRatio, sizeOfVideo.height * videoHeightRatio);
+    UIGraphicsBeginImageContext(newImageSize);
+    [myImage drawInRect:CGRectMake(0, 0, newImageSize.width, newImageSize.height)];
     UIImage *destImage = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
     myImage = destImage;
@@ -66,20 +81,22 @@ RCT_EXPORT_METHOD(convert:(NSString *)videoUri imageUri:(nonnull NSString *)imag
     
     CALayer *layerCa = [CALayer layer];
     layerCa.contents = (id)destImage.CGImage;
-    layerCa.frame = CGRectMake(0, 0, sizeOfVideo.width, sizeOfVideo.height);
+    
+    layerCa.frame = CGRectMake(fabs(resultVideoSize.width - newImageSize.width) / 2, fabs(resultVideoSize.height - newImageSize.height) / 2, newImageSize.width, newImageSize.height);
     layerCa.opacity = 1.0;
     
     CALayer *parentLayer=[CALayer layer];
     CALayer *videoLayer=[CALayer layer];
-    parentLayer.frame=CGRectMake(0, 0, sizeOfVideo.width, sizeOfVideo.height);
-    videoLayer.frame=CGRectMake(0, 0, sizeOfVideo.width, sizeOfVideo.height);
+    
+    parentLayer.frame=CGRectMake(0, 0, resultVideoSize.width, resultVideoSize.height);
+    videoLayer.frame=CGRectMake(0, (resultVideoSize.height - newVideoSize.height) / 2, newVideoSize.width, newVideoSize.height);
     [parentLayer addSublayer:videoLayer];
     [parentLayer addSublayer:layerCa];
     
     AVMutableVideoComposition *videoComposition=[AVMutableVideoComposition videoComposition];
     
     videoComposition.frameDuration=CMTimeMake(1, 30);
-    videoComposition.renderSize=sizeOfVideo;
+    videoComposition.renderSize=resultVideoSize;
     videoComposition.animationTool=[AVVideoCompositionCoreAnimationTool videoCompositionCoreAnimationToolWithPostProcessingAsVideoLayer:videoLayer inLayer:parentLayer];
     
     AVMutableVideoCompositionInstruction *instruction = [AVMutableVideoCompositionInstruction videoCompositionInstruction];
