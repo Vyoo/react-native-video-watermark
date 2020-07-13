@@ -52,7 +52,8 @@ public class VideoWatermarkModule extends ReactContextBaseJavaModule {
               e.printStackTrace();
           }
       }
-
+      videoWidth = videoWidth == 0 ? width : videoWidth;
+      videoHeight = videoHeight == 0 ? height : videoHeight;
       final String destinationPath = destFile.getPath();
       final Bitmap resizedImage = this.resizeBitmapImage(imagePath, videoWidth, videoHeight);
       new Mp4Composer(Uri.fromFile(new File(videoPath)), destinationPath, reactContext)
